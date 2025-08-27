@@ -19,15 +19,20 @@ def generate_response_headers(status_code, status_info):
     return headers_list
 
 
-def generate_request_headers(domain, resource):
+def generate_request_headers(domain, file):
     headers_list = [
-        f"GET {resource} HTTP/1.1\n",
+        f"GET /{file} HTTP/1.1\n",
         f"Host: {domain}\n",
         "User-Agent: proxy\n",
         "\r\n",
     ]
     return headers_list
 
+
+# TODO, response status
+def is_response_success{
+    pass
+}
 
 # class ProxySession:
 
@@ -55,20 +60,18 @@ while 1:
     print(f"client request url:{crude_client_url}")
 
     # Extract target host and target resource
-    target_host = crude_client_url.removeprefix("/")
+    target_host = crude_client_url.split("/")[0]
     print(target_host)
     if len(crude_client_url.split("/")) < 2:
-        filename = ""
+        request_filename = ""
     else:
-        filename = crude_client_url.split("/")[1]
-    print(filename)
+        request_filename = crude_client_url.split("/")[1]
+    print(request_filename)
     file_exist = False
-    resource = "/" + filename
-    print(resource)
 
     try:
         # Check whether the file exist in the cache
-        with open(filename, "r") as f:
+        with open(request_filename, "r") as f:
             file_content = f.readlines()
             file_exist = True
             # Proxy server finds a cache hit and generates a response message
@@ -83,28 +86,42 @@ while 1:
         if not file_exist:
             # Create a socket on the proxy server
             target_sever_socket = socket.socket(type=socket.SOCK_STREAM)
-            hostname = filename.replace("www.", "", 1)
-            print(hostname)
+            # hostname = request_filename.replace("www.", "", 1)
+            # print(hostname)
             try:
+                print(f"Send request to target host: {target_host}")
                 # Connect to target host
                 target_sever_socket.connect((target_host, 80))
                 # Create a temporary file on this socket and ask port 80 for the file requested by the client
-                file_object = target_sever_socket.makefile("r", 0)
-                file_object.write("GET " + "http://" + filename + "HTTP/1.0\n\n")
+                # file_object = target_sever_socket.makefile("r", 0)
+                # file_object.write("GET " + "http://" + request_filename + "HTTP/1.0\n\n")
                 # Read the response into buffer
                 # Fill in start.
-                request_headers = generate_request_headers(target_host, resource)
+                request_headers = generate_request_headers(
+                    target_host, request_filename
+                )
+                print(f"Headers:\n{request_headers}")
                 for header in request_headers:
                     target_sever_socket.send(header.encode())
-                response_message = target_sever_socket.recv(4096)
+                response_byte = b""
+                while True:
+                    response_chunk = target_sever_socket.recv(4096)
+                    if not response_chunk:
+                        break
+                    response_byte += response_chunk
+                print(f"Response from target host:\n{response_byte}")
                 # Fill in end.
                 # Create a new file in the cache for the requested file.
                 # Also send the response in the buffer to client socket and the corresponding file in the cache
-                tmp_file = open("./" + filename, "wb")
+                client_socket.sendall(response_byte)
+                if is_response_success:
+                    tmp_file = open("./" + request_filename, "wb")
                 # Fill in start.
+                client_socket.sendall(response_byte)
                 # Fill in end.
-            except:
+            except Exception as e:
                 print("Illegal request")
+                print(e)
         else:
             # HTTP response message for file not found
             # Fill in start.
